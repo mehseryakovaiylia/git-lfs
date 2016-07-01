@@ -21,6 +21,9 @@ var (
 		Use: "track",
 		Run: trackCommand,
 	}
+
+	trackNoTouchFlag        bool
+	trackVerboseLoggingFlag bool
 )
 
 func trackCommand(cmd *cobra.Command, args []string) {
@@ -82,24 +85,29 @@ ArgsLoop:
 		}
 		Print("Tracking %s", pattern)
 
-		// Make sure any existing git tracked files have their timestamp updated
-		// so they will now show as modifed
-		// note this is relative to current dir which is how we write .gitattributes
-		// deliberately not done in parallel as a chan because we'll be marking modified
-		gittracked, err := git.GetTrackedFiles(pattern)
-		if err != nil {
-			LoggedError(err, "Error getting git tracked files")
-			continue
-		}
-		now := time.Now()
-		for _, f := range gittracked {
-			err := os.Chtimes(f, now, now)
+		if !trackNoTouchFlag {
+			// Make sure any existing git tracked files have their timestamp updated
+			// so they will now show as modifed
+			// note this is relative to current dir which is how we write .gitattributes
+			// deliberately not done in parallel as a chan because we'll be marking modified
+			gittracked, err := git.GetTrackedFiles(pattern)
 			if err != nil {
-				LoggedError(err, "Error marking %q modified", f)
+				LoggedError(err, "Error getting git tracked files")
 				continue
 			}
-		}
+			now := time.Now()
+			for _, f := range gittracked {
+				if trackVerboseLoggingFlag {
+					Print("Git LFS Track: touching %s", f)
+				}
 
+				err := os.Chtimes(f, now, now)
+				if err != nil {
+					LoggedError(err, "Error marking %q modified", f)
+					continue
+				}
+			}
+		}
 	}
 }
 
@@ -182,5 +190,8 @@ func needsTrailingLinebreak(filename string) bool {
 }
 
 func init() {
+	trackCmd.Flags().BoolVarP(&trackNoTouchFlag, "no-touch", "n", false, "skip modifying files matched by the glob")
+	trackCmd.Flags().BoolVarP(&trackVerboseLoggingFlag, "verbose", "v", false, "log which files are being tracked and modified")
+
 	RootCmd.AddCommand(trackCmd)
 }
