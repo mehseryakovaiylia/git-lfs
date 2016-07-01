@@ -98,7 +98,7 @@ ArgsLoop:
 			now := time.Now()
 			for _, f := range gittracked {
 				if trackVerboseLoggingFlag {
-					Print("Git LFS Track: touching %s", f)
+					Print("Git LFS: touching %s", f)
 				}
 
 				err := os.Chtimes(f, now, now)
