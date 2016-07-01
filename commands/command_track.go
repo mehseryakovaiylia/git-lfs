@@ -24,6 +24,7 @@ var (
 
 	trackNoTouchFlag        bool
 	trackVerboseLoggingFlag bool
+	trackDryRunFlag         bool
 )
 
 func trackCommand(cmd *cobra.Command, args []string) {
@@ -77,15 +78,17 @@ ArgsLoop:
 			}
 		}
 
-		encodedArg := strings.Replace(pattern, " ", "[[:space:]]", -1)
-		_, err := attributesFile.WriteString(fmt.Sprintf("%s filter=lfs diff=lfs merge=lfs -text\n", encodedArg))
-		if err != nil {
-			Print("Error adding path %s", pattern)
-			continue
+		if !trackDryRunFlag {
+			encodedArg := strings.Replace(pattern, " ", "[[:space:]]", -1)
+			_, err := attributesFile.WriteString(fmt.Sprintf("%s filter=lfs diff=lfs merge=lfs -text\n", encodedArg))
+			if err != nil {
+				Print("Error adding path %s", pattern)
+				continue
+			}
 		}
 		Print("Tracking %s", pattern)
 
-		if !trackNoTouchFlag {
+		if !trackNoTouchFlag || trackDryRunFlag {
 			// Make sure any existing git tracked files have their timestamp updated
 			// so they will now show as modifed
 			// note this is relative to current dir which is how we write .gitattributes
@@ -97,14 +100,16 @@ ArgsLoop:
 			}
 			now := time.Now()
 			for _, f := range gittracked {
-				if trackVerboseLoggingFlag {
+				if trackVerboseLoggingFlag || trackDryRunFlag {
 					Print("Git LFS: touching %s", f)
 				}
 
-				err := os.Chtimes(f, now, now)
-				if err != nil {
-					LoggedError(err, "Error marking %q modified", f)
-					continue
+				if !trackDryRunFlag {
+					err := os.Chtimes(f, now, now)
+					if err != nil {
+						LoggedError(err, "Error marking %q modified", f)
+						continue
+					}
 				}
 			}
 		}
@@ -192,6 +197,7 @@ func needsTrailingLinebreak(filename string) bool {
 func init() {
 	trackCmd.Flags().BoolVarP(&trackNoTouchFlag, "no-touch", "n", false, "skip modifying files matched by the glob")
 	trackCmd.Flags().BoolVarP(&trackVerboseLoggingFlag, "verbose", "v", false, "log which files are being tracked and modified")
+	trackCmd.Flags().BoolVarP(&trackDryRunFlag, "dry-run", "d", false, "preview results of running `git lfs track`")
 
 	RootCmd.AddCommand(trackCmd)
 }
