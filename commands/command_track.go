@@ -93,11 +93,13 @@ ArgsLoop:
 			// so they will now show as modifed
 			// note this is relative to current dir which is how we write .gitattributes
 			// deliberately not done in parallel as a chan because we'll be marking modified
+			Print("Searching for files matching pattern: %s", pattern)
 			gittracked, err := git.GetTrackedFiles(pattern)
 			if err != nil {
 				LoggedError(err, "Error getting git tracked files")
 				continue
 			}
+			Print("Found %d files matching pattern: %s", len(gittracked), pattern)
 			now := time.Now()
 			for _, f := range gittracked {
 				if trackVerboseLoggingFlag || trackDryRunFlag {
